@@ -11,7 +11,11 @@ import org.apache.log4j.Logger;
 import javax.jms.*;
 import java.util.Date;
 
+import static ee.ttu.idu0080.raamatupood.server.EmbeddedBroker.URLSEND;
+import static ee.ttu.idu0080.raamatupood.server.EmbeddedBroker.URL_RECEIVE;
 import static java.lang.Math.toIntExact;
+import static org.apache.activemq.ActiveMQConnection.DEFAULT_PASSWORD;
+import static org.apache.activemq.ActiveMQConnection.DEFAULT_USER;
 
 /**
  * JMS sõnumite tarbija. Ühendub broker-i urlile
@@ -21,16 +25,8 @@ import static java.lang.Math.toIntExact;
  */
 public class Vabrik {
 	private static final Logger log = Logger.getLogger(Vabrik.class);
-	private static final String SUBJECTSEND = "tellimus.edastamine"; // järjekorra nimi
-	private static final String SUBJECTRECEIVE = "tellimus.vastus";
-	private String user = ActiveMQConnection.DEFAULT_USER;
-	private String password = ActiveMQConnection.DEFAULT_PASSWORD;
-	private String urlSend = EmbeddedBroker.URL;
-	private String urlReceive = EmbeddedBroker.URL_RECEIVE;
 
-	long sleepTime = 1000; // 1000ms
-
-	private int messageCount = 2;
+	private long sleepTime = 1000; // 1000ms
 	private long timeToLive = 1000000;
 
 	public static void main(String[] args) {
@@ -38,43 +34,31 @@ public class Vabrik {
 		vabrikTool.run();
 	}
 
-	public void run() {
-		createConsumer();
+	private void run() {
+		createConsumer(EmbeddedBroker.SUBJECTSEND);
 
 	}
 
-	private void createConsumer() {
+	private void createConsumer(String queueName) {
 		Connection connection = null;
 		try {
-			log.info("Connecting to URL: " + urlSend);
-			log.info("Consuming queue : " + SUBJECTSEND);
+			log.info("Connecting to URLSEND: " + EmbeddedBroker.URLSEND);
+			log.info("Consuming queue : " + queueName);
 
 			// 1. Loome ühenduse
 			ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(
-					user, password, urlSend);
+					ActiveMQConnection.DEFAULT_USER, ActiveMQConnection.DEFAULT_PASSWORD, EmbeddedBroker.URLSEND);
 			connection = connectionFactory.createConnection();
-
-			// Kui ühendus kaob, lõpetatakse Consumeri töö veateatega.
 			connection.setExceptionListener(new ExceptionListenerImpl());
-
-			// Käivitame ühenduse
 			connection.start();
 
 			// 2. Loome sessiooni
-			/*
-			 * createSession võtab 2 argumenti: 1. kas saame kasutada
-			 * transaktsioone 2. automaatne kinnitamine
-			 */
 			Session session = connection.createSession(false,
 					Session.AUTO_ACKNOWLEDGE);
-
-			// Loome teadete sihtkoha (järjekorra). Parameetriks järjekorra nimi
-			Destination destination = session.createQueue(SUBJECTSEND);
+			Destination destination = session.createQueue(queueName);
 
 			// 3. Teadete vastuvõtja
 			MessageConsumer consumer = session.createConsumer(destination);
-
-			// Kui teade vastu võetakse käivitatakse onMessage()
 			consumer.setMessageListener(new MessageListenerImpl());
 
 		} catch (Exception e) {
@@ -87,19 +71,13 @@ public class Vabrik {
 
 		public void onMessage(Message message) {
 			try {
-				if (message instanceof TextMessage) {
-					TextMessage txtMsg = (TextMessage) message;
-					String msg = txtMsg.getText();
-					log.info("Received: " + msg);
-				} else if (message instanceof ObjectMessage) {
+				if (message instanceof ObjectMessage) {
 					ObjectMessage objectMessage = (ObjectMessage) message;
-					if(objectMessage.getObject() instanceof Tellimus)
-					{
+					if(objectMessage.getObject() instanceof Tellimus) {
 						Tellimus tellimus = (Tellimus)objectMessage.getObject();
 						parseResultSendAnswer(tellimus);
 						log.info("Tellimus!!! Tellimusel on " + tellimus.getTellimuseRead().size() + " rida");
 					}
-
 
 					String msg = objectMessage.getObject().toString();
 					log.info("Received: " + msg);
@@ -118,7 +96,7 @@ public class Vabrik {
 	private void parseResultSendAnswer(Tellimus tellimus) {
 		try {
 			Connection connection;
-			log.info("Connecting to URL: " + urlReceive);
+			log.info("Connecting to URLSEND: " + EmbeddedBroker.URL_RECEIVE);
 			log.debug("Sleeping between publish " + sleepTime + " ms");
 			if (timeToLive != 0) {
 				log.debug("Messages time to live " + timeToLive + " ms");
@@ -126,27 +104,17 @@ public class Vabrik {
 
 			// 1. Loome ühenduse
 			ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(
-					user, password, urlReceive);
+					ActiveMQConnection.DEFAULT_USER, ActiveMQConnection.DEFAULT_PASSWORD, EmbeddedBroker.URL_RECEIVE);
 			connection = connectionFactory.createConnection();
-			// Käivitame yhenduse
 			connection.start();
 
 			// 2. Loome sessiooni
-			/*
-			 * createSession võtab 2 argumenti: 1. kas saame kasutada
-			 * transaktsioone 2. automaatne kinnitamine
-			 */
 			Session session = connection.createSession(false,
 					Session.AUTO_ACKNOWLEDGE);
-
-			// Loome teadete sihtkoha (järjekorra). Parameetriks järjekorra nimi
-			Destination destination = session.createQueue(SUBJECTRECEIVE);
+			Destination destination = session.createQueue(EmbeddedBroker.SUBJECTRECEIVE);
 
 			// 3. Loome teadete saatja
 			MessageProducer producer = session.createProducer(destination);
-
-
-			// producer.setDeliveryMode(DeliveryMode.PERSISTENT);
 			producer.setTimeToLive(timeToLive);
 
 			// 4. teadete saatmine
@@ -158,7 +126,7 @@ public class Vabrik {
 
 	}
 
-	protected void sendAnswer(Session session, MessageProducer producer, Tellimus tellimus)
+	private void sendAnswer(Session session, MessageProducer producer, Tellimus tellimus)
 			throws Exception {
 		if (tellimus.getTellimuseRead() != null) {
 			// ootab 1 sekundi

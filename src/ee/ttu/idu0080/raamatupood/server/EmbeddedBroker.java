@@ -13,8 +13,10 @@ public final class EmbeddedBroker {
     private static final Logger log = Logger.getLogger(EmbeddedBroker.class);
     public static final String PORT = "61618";
     public static final String PORT_RECEIVE = "61619";
-    public static final String URL = "tcp://localhost:" + PORT;
+    public static final String URLSEND = "tcp://localhost:" + PORT;
     public static final String URL_RECEIVE = "tcp://localhost:" + PORT_RECEIVE;
+    public static final String SUBJECTSEND = "tellimus.edastamine"; // järjekorra nimi
+    public static final String SUBJECTRECEIVE = "tellimus.vastus";
 
     private EmbeddedBroker() {
     }
@@ -23,9 +25,9 @@ public final class EmbeddedBroker {
         BrokerService broker = new BrokerService();
         // Lets set JMS name
         broker.setBrokerName("JMS_BROKER");
-        broker.addConnector(URL);
+        broker.addConnector(URLSEND);
         broker.start();
-        log.info("Start JMS Broker on " + URL);
+        log.info("Start JMS Broker on " + URLSEND);
 
         BrokerService brokerReceive = new BrokerService();
         // Lets set JMS name
