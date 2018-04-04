@@ -1,7 +1,6 @@
 package ee.ttu.idu0080.raamatupood.client;
 
 import ee.ttu.idu0080.raamatupood.server.EmbeddedBroker;
-import ee.ttu.idu0080.raamatupood.server.ExceptionListenerImpl;
 import ee.ttu.idu0080.raamatupood.types.Tellimus;
 import ee.ttu.idu0080.raamatupood.types.TellimuseRida;
 import ee.ttu.idu0080.raamatupood.types.Toode;
@@ -19,11 +18,8 @@ import java.util.Date;
  * @author Allar Tammik
  * @date 08.03.2010
  */
-public class Raamatupood {
+public class Raamatupood extends MessageChanger {
 	private static final Logger log = Logger.getLogger(Raamatupood.class);
-
-	private String user = ActiveMQConnection.DEFAULT_USER;// brokeri jaoks vaja
-	private String password = ActiveMQConnection.DEFAULT_PASSWORD;
 
 	private long sleepTime = 1000; // 1000ms
 	private int messageCount = 2;
@@ -36,10 +32,8 @@ public class Raamatupood {
 
 	public void run() {
 		createProducerAndSendTellimusOnQueue(EmbeddedBroker.SUBJECTSEND);
-		createConsumerForListeningRepliesOnQueue(EmbeddedBroker.SUBJECTRECEIVE);
+		createConsumerForListeningRepliesOnQueue(EmbeddedBroker.SUBJECTRECEIVE, EmbeddedBroker.URL_RECEIVE, log, new MessageListenerImpl());
 	}
-
-
 
 	private void createProducerAndSendTellimusOnQueue(String queueName) {
 		try {
@@ -67,31 +61,6 @@ public class Raamatupood {
 		}
 	}
 
-	private void createConsumerForListeningRepliesOnQueue(String queueName) {
-		Connection connection = null;
-		try {
-			log.info("Connecting to URLSEND: " + EmbeddedBroker.URL_RECEIVE);
-			log.info("Consuming queue : " + queueName);
-
-			ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(
-					ActiveMQConnection.DEFAULT_USER, ActiveMQConnection.DEFAULT_PASSWORD, EmbeddedBroker.URL_RECEIVE);
-			connection = connectionFactory.createConnection();
-			connection.setExceptionListener(new ExceptionListenerImpl());
-			connection.start();
-
-
-			Session session = connection.createSession(false,
-					Session.AUTO_ACKNOWLEDGE);
-
-			Destination destination = session.createQueue(queueName);
-			MessageConsumer consumer = session.createConsumer(destination);
-			consumer.setMessageListener(new MessageListenerImpl());
-
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
-
 
 	private void sendLoop(Session session, MessageProducer producer)
 			throws Exception {
@@ -114,23 +83,17 @@ public class Raamatupood {
 		return "Message: " + index + " sent at: " + (new Date()).toString();
 	}
 
-
-	class MessageListenerImpl implements javax.jms.MessageListener {
+	class MessageListenerImpl extends MessageListener {
 		private final Logger log = Logger.getLogger(MessageListenerImpl.class);
 
-		public void onMessage(Message message) {
-			try {
-				if (message instanceof TextMessage) {
-					TextMessage txtMsg = (TextMessage) message;
-					String msg = txtMsg.getText();
-					log.info("Received: " + msg);
-				} else {
-					log.info("Received: " + message);
-				}
-
-			} catch (JMSException e) {
-				log.warn("Caught: " + e);
-				e.printStackTrace();
+		@Override
+		public void parseMessage(Message message) throws JMSException {
+			if (message instanceof TextMessage) {
+				TextMessage txtMsg = (TextMessage) message;
+				String msg = txtMsg.getText();
+				log.info("Received: " + msg);
+			} else {
+				log.info("Received: " + message);
 			}
 		}
 	}
