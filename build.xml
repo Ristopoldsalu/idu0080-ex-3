@@ -1,0 +1,46 @@
+<project name="IDU0080 JMS" basedir="." default="compile">
+	<property name="classes.dir" value="classes" />
+	<property name="lib.dir" value="lib" />
+
+	<path id="main.classpath">
+		<fileset dir="${lib.dir}" includes="**/**.jar" />
+		<dirset dir="${classes.dir}" />
+	</path>
+
+	<target name="init">
+		<mkdir dir="${classes.dir}" />
+	</target>
+
+	<target name="clean">
+		<delete dir="${classes.dir}" />
+	</target>
+
+	<target name="compile" depends="init">
+		<javac srcdir="src" destdir="${classes.dir}" classpathref="main.classpath" debug="on" encoding="UTF-8"/>
+		<copy todir="${classes.dir}">
+			<fileset dir="src" includes="**/*.properties" />
+		</copy>
+	</target>
+
+	<target name="runBroker" depends="compile">
+		<java classname="ee.ttu.idu0080.raamatupood.server.EmbeddedBroker" fork="true">
+			<classpath refid="main.classpath" />
+			<jvmarg line="-Djava.security.policy=policy.all" />
+		</java>
+	</target>
+
+	<target name="runConsumer" depends="compile">
+		<java classname="ee.ttu.idu0080.raamatupood.client.Vabrik" fork="true">
+			<classpath refid="main.classpath" />
+			<jvmarg line="-Djava.security.policy=policy.all" />
+		</java>
+	</target>
+
+	<target name="runProducer" depends="compile">
+		<java classname="ee.ttu.idu0080.raamatupood.client.Raamatupood" fork="true">
+			<classpath refid="main.classpath" />
+			<jvmarg line="-Djava.security.policy=policy.all" />
+		</java>
+	</target>
+
+</project>
