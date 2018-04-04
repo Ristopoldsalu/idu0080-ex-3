@@ -30,7 +30,6 @@ public class Vabrik extends MessageChanger{
 		createConsumerForListeningRepliesOnQueue(EmbeddedBroker.SUBJECTSEND, EmbeddedBroker.URLSEND, log, new MessageListenerImpl());
 	}
 
-
 	class MessageListenerImpl extends MessageListener {
 		private final Logger log = Logger.getLogger(MessageListenerImpl.class);
 

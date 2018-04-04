@@ -31,8 +31,8 @@ public class Raamatupood extends MessageChanger {
 	}
 
 	public void run() {
-		createProducerAndSendTellimusOnQueue(EmbeddedBroker.SUBJECTSEND);
 		createConsumerForListeningRepliesOnQueue(EmbeddedBroker.SUBJECTRECEIVE, EmbeddedBroker.URL_RECEIVE, log, new MessageListenerImpl());
+		createProducerAndSendTellimusOnQueue(EmbeddedBroker.SUBJECTSEND);
 	}
 
 	private void createProducerAndSendTellimusOnQueue(String queueName) {
