@@ -1,9 +1,11 @@
 package ee.ttu.idu0080.raamatupood.types;
 
+import java.io.Serializable;
+
 /**
  * Created by risto on 04.04.2018.
  */
-public class TellimuseRida {
+public class TellimuseRida implements Serializable {
 
     Toode toode;
     long kogus;

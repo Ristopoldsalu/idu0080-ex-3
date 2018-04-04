@@ -4,11 +4,14 @@ import ee.ttu.idu0080.raamatupood.server.EmbeddedBroker;
 import ee.ttu.idu0080.raamatupood.server.ExceptionListenerImpl;
 import ee.ttu.idu0080.raamatupood.types.Car;
 import ee.ttu.idu0080.raamatupood.types.Tellimus;
+import ee.ttu.idu0080.raamatupood.types.TellimuseRida;
+import ee.ttu.idu0080.raamatupood.types.Toode;
 import org.apache.activemq.ActiveMQConnection;
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.log4j.Logger;
 
 import javax.jms.*;
+import java.math.BigDecimal;
 import java.util.Date;
 
 /**
@@ -26,7 +29,7 @@ public class Raamatupood {
 	private String user = ActiveMQConnection.DEFAULT_USER;// brokeri jaoks vaja
 	private String password = ActiveMQConnection.DEFAULT_PASSWORD;
 
-	long sleepTime = 1000; // 1000ms
+	private long sleepTime = 1000; // 1000ms
 
 	private int messageCount = 2;
 	private long timeToLive = 1000000;
@@ -39,57 +42,52 @@ public class Raamatupood {
 	}
 
 	public void run() {
-		Connection connection = null;
-		try {
+		createProducerAndSend();
 
-			createProducerAndSend();
-
-			createConsumer();
-
-
-
-		} catch (Exception e) {
-			e.printStackTrace();
-		} 
+		createConsumer();
 	}
 
 
 
-	private void createProducerAndSend() throws Exception {
-		Connection connection;
-		log.info("Connecting to URL: " + urlSend);
-		log.debug("Sleeping between publish " + sleepTime + " ms");
-		if (timeToLive != 0) {
-            log.debug("Messages time to live " + timeToLive + " ms");
-        }
+	private void createProducerAndSend() {
+		try {
+			Connection connection;
+			log.info("Connecting to URL: " + urlSend);
+			log.debug("Sleeping between publish " + sleepTime + " ms");
+			if (timeToLive != 0) {
+				log.debug("Messages time to live " + timeToLive + " ms");
+			}
 
-		// 1. Loome ühenduse
-		ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(
-                user, password, urlSend);
-		connection = connectionFactory.createConnection();
-		// Käivitame yhenduse
-		connection.start();
+			// 1. Loome ühenduse
+			ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(
+					user, password, urlSend);
+			connection = connectionFactory.createConnection();
+			// Käivitame yhenduse
+			connection.start();
 
-		// 2. Loome sessiooni
-			/*
-			 * createSession võtab 2 argumenti: 1. kas saame kasutada
-			 * transaktsioone 2. automaatne kinnitamine
-			 */
-		Session session = connection.createSession(false,
-                Session.AUTO_ACKNOWLEDGE);
+			// 2. Loome sessiooni
+				/*
+				 * createSession võtab 2 argumenti: 1. kas saame kasutada
+				 * transaktsioone 2. automaatne kinnitamine
+				 */
+			Session session = connection.createSession(false,
+					Session.AUTO_ACKNOWLEDGE);
 
-		// Loome teadete sihtkoha (järjekorra). Parameetriks järjekorra nimi
-		Destination destination = session.createQueue(SUBJECTSEND);
+			// Loome teadete sihtkoha (järjekorra). Parameetriks järjekorra nimi
+			Destination destination = session.createQueue(SUBJECTSEND);
 
-		// 3. Loome teadete saatja
-		MessageProducer producer = session.createProducer(destination);
+			// 3. Loome teadete saatja
+			MessageProducer producer = session.createProducer(destination);
 
 
-		// producer.setDeliveryMode(DeliveryMode.PERSISTENT);
-		producer.setTimeToLive(timeToLive);
+			// producer.setDeliveryMode(DeliveryMode.PERSISTENT);
+			producer.setTimeToLive(timeToLive);
 
-		// 4. teadete saatmine
-		sendLoop(session, producer);
+			// 4. teadete saatmine
+			sendLoop(session, producer);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 
 	private void createConsumer() {
@@ -132,20 +130,19 @@ public class Raamatupood {
 	}
 
 
-	protected void sendLoop(Session session, MessageProducer producer)
+	private void sendLoop(Session session, MessageProducer producer)
 			throws Exception {
 
 		for (int i = 0; i < messageCount || messageCount == 0; i++) {
+			Tellimus tellimus = new Tellimus();
+			tellimus.addTellimuseRida(new TellimuseRida(new Toode(4, "raamat", BigDecimal.valueOf(3L)), 5L));
 			ObjectMessage objectMessage = session.createObjectMessage();
-			objectMessage.setObject(new Tellimus()); // peab olema Serializable
+			objectMessage.setObject(tellimus); // peab olema Serializable
 			producer.send(objectMessage);
 
-			TextMessage message = session
-					.createTextMessage(createMessageText(i));
-			log.debug("Sending message: " + message.getText());
-			producer.send(message);
-			
-			// ootab 1 sekundi
+			log.debug("Sending message: " + createMessageText(i));
+
+			// ootab 10 sekundit
 			Thread.sleep(sleepTime);
 		}
 	}

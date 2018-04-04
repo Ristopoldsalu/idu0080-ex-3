@@ -27,6 +27,9 @@ public class Tellimus implements Serializable {
     }
 
     public void addTellimuseRida(TellimuseRida tellimuseRida) {
+        if (tellimuseRead == null) {
+            tellimuseRead = new ArrayList<>();
+        }
         this.tellimuseRead.add(tellimuseRida);
     }
 }

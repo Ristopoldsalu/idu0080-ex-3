@@ -3,6 +3,7 @@ package ee.ttu.idu0080.raamatupood.client;
 import ee.ttu.idu0080.raamatupood.server.EmbeddedBroker;
 import ee.ttu.idu0080.raamatupood.server.ExceptionListenerImpl;
 import ee.ttu.idu0080.raamatupood.types.Tellimus;
+import ee.ttu.idu0080.raamatupood.types.TellimuseRida;
 import org.apache.activemq.ActiveMQConnection;
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.log4j.Logger;
@@ -94,7 +95,6 @@ public class Vabrik {
 					ObjectMessage objectMessage = (ObjectMessage) message;
 					if(objectMessage.getObject() instanceof Tellimus)
 					{
-						//TODO create producer send answer
 						Tellimus tellimus = (Tellimus)objectMessage.getObject();
 						parseResultSendAnswer(tellimus);
 						log.info("Tellimus!!! Tellimusel on " + tellimus.getTellimuseRead().size() + " rida");
@@ -118,7 +118,7 @@ public class Vabrik {
 	private void parseResultSendAnswer(Tellimus tellimus) {
 		try {
 			Connection connection;
-			log.info("Connecting to URL: " + urlSend);
+			log.info("Connecting to URL: " + urlReceive);
 			log.debug("Sleeping between publish " + sleepTime + " ms");
 			if (timeToLive != 0) {
 				log.debug("Messages time to live " + timeToLive + " ms");
@@ -126,7 +126,7 @@ public class Vabrik {
 
 			// 1. Loome ühenduse
 			ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(
-					user, password, urlSend);
+					user, password, urlReceive);
 			connection = connectionFactory.createConnection();
 			// Käivitame yhenduse
 			connection.start();
@@ -140,7 +140,7 @@ public class Vabrik {
 					Session.AUTO_ACKNOWLEDGE);
 
 			// Loome teadete sihtkoha (järjekorra). Parameetriks järjekorra nimi
-			Destination destination = session.createQueue(SUBJECTSEND);
+			Destination destination = session.createQueue(SUBJECTRECEIVE);
 
 			// 3. Loome teadete saatja
 			MessageProducer producer = session.createProducer(destination);
@@ -160,18 +160,37 @@ public class Vabrik {
 
 	protected void sendAnswer(Session session, MessageProducer producer, Tellimus tellimus)
 			throws Exception {
-		// ootab 1 sekundi
-		Thread.sleep(sleepTime);
+		if (tellimus.getTellimuseRead() != null) {
+			// ootab 1 sekundi
+			Thread.sleep(sleepTime);
 
-		TextMessage message = session
-				.createTextMessage(createMessageText(tellimus));
-		log.debug("Sending message: " + message.getText());
-		producer.send(message);
+			TextMessage message = session
+					.createTextMessage(createMessageText(tellimus));
+			log.debug("Sending message: " + message.getText());
+			producer.send(message);
+		}
 	}
 
 	private String createMessageText(Tellimus tellimus) {
-		Integer kogus = tellimus.getTellimuseRead().stream().mapToInt(tellimuseRida -> toIntExact(tellimuseRida.getKogus())).sum();
-		return "Message: Telliti " + kogus + " toodet hinnaga " + kogus*3 + " at: " + (new Date()).toString();
+		double totalPrice = calculateTotalPrice(tellimus);
+		Integer amount = getTotalAmount(tellimus);
+		return "Message: Telliti " + amount + " toodet hinnaga " + totalPrice + " at: " + (new Date()).toString();
+	}
+
+	private int getTotalAmount(Tellimus tellimus) {
+		return tellimus.getTellimuseRead().stream()
+			.mapToInt(tellimuseRida -> toIntExact(tellimuseRida.getKogus()))
+			.sum();
+	}
+
+	private double calculateTotalPrice(Tellimus tellimus) {
+		return tellimus.getTellimuseRead().stream()
+		   .mapToDouble(this::getPriceWithAmount)
+		   .sum();
+	}
+
+	private double getPriceWithAmount(TellimuseRida tellimuseRida) {
+		return tellimuseRida.getToode().getHind().longValue()*tellimuseRida.getKogus();
 	}
 
 
